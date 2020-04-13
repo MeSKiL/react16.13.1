@@ -154,6 +154,10 @@ if (__DEV__) {
   };
 }
 
+/**
+ *
+ * @param fiber
+ */
 export function initializeUpdateQueue<State>(fiber: Fiber): void {
   const queue: UpdateQueue<State> = {
     baseState: fiber.memoizedState,
@@ -186,6 +190,18 @@ export function cloneUpdateQueue<State>(
   }
 }
 
+/**
+ *
+ * @param expirationTime
+ * @param suspenseConfig
+ * @description
+ *  tag对应四种情况
+ *  UpdateState = 0 更新state
+ *  ReplaceState = 1 替代state
+ *  ForceState = 2 强制更新
+ *  CaptureUpdate = 3 捕获错误update
+ * @returns {Update<*>}
+ */
 export function createUpdate(
   expirationTime: ExpirationTime,
   suspenseConfig: null | SuspenseConfig,
@@ -206,7 +222,14 @@ export function createUpdate(
   return update;
 }
 
+/**
+ *
+ * @param fiber rootFiber
+ * @param update createUpdate出的update对象
+ * @description 设置updateQueue
+ */
 export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
+  // createFiberRoot的时候init的updateQueue并且pending是null
   const updateQueue = fiber.updateQueue;
   if (updateQueue === null) {
     // Only occurs if the fiber has been unmounted.
@@ -214,13 +237,35 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
   }
 
   const sharedQueue: SharedQueue<State> = (updateQueue: any).shared;
+  // 此次update到来前 最新的update，指向最旧的update (环尾的update)
   const pending = sharedQueue.pending;
+
+  // 1.next = 1
+  //
+  // 2.next = 1
+  // 1.next = 2
+  //
+  // 3.next = 1
+  // 2.next = 3
+  //
+  // 4.next = 1
+  // 3.next = 4
+
+  // 5.next = 1
+  // 4.next = 5
+
   if (pending === null) {
+    // 第一次更新update自己指向自己就行了
     // This is the first update. Create a circular list.
     update.next = update;
   } else {
+    // pending是之前最新的update,pending.next指向最旧的update
+
+    // 此次update指向最旧的update
     update.next = pending.next;
+    // 此前最新的指向这个新来的update
     pending.next = update;
+    // 得到的结果就是现在的update是最新的update，并且指向了最旧的update
   }
   sharedQueue.pending = update;
 

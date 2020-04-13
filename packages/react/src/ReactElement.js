@@ -345,12 +345,30 @@ export function jsxDEV(type, config, maybeKey, source, self) {
  * Create and return a new ReactElement of the given type.
  * See https://reactjs.org/docs/react-api.html#createelement
  */
+
+/**
+ *
+ * @param type 节点类型
+ * @param config 节点属性
+ * @param children 子节点
+ * @description
+ 1.处理props
+ (1)处理ref、key、self、source
+ (2)处理props.children
+ (3)处理默认值
+ 2.返回ReactElement传入上面处理过的内容
+ * @returns {{ref: (string|Object), _owner: *, $$typeof: number, type: (ReactElement.props|*), key: *, props: *}}
+ */
 export function createElement(type, config, children) {
   let propName;
 
   // Reserved names are extracted
   const props = {};
 
+  // 处理ref、key、self、source
+
+  // 如果ref、key、self、source合理，就赋值到上面定义的变量上
+  // 其余的属性加入到props上去
   let key = null;
   let ref = null;
   let self = null;
@@ -371,6 +389,14 @@ export function createElement(type, config, children) {
     self = config.__self === undefined ? null : config.__self;
     source = config.__source === undefined ? null : config.__source;
     // Remaining properties are added to a new props object
+
+    /* const RESERVED_PROPS = {
+        key:true,
+        ref:true,
+        __self:true,
+        __source:true
+    } */
+
     for (propName in config) {
       if (
         hasOwnProperty.call(config, propName) &&
@@ -383,6 +409,10 @@ export function createElement(type, config, children) {
 
   // Children can be more than one argument, and those are transferred onto
   // the newly allocated props object.
+
+  // 处理props.children
+  // 第二个参数及以后的参数都是children
+  // 如果有多个children，就为数组
   const childrenLength = arguments.length - 2;
   if (childrenLength === 1) {
     props.children = children;
@@ -400,6 +430,9 @@ export function createElement(type, config, children) {
   }
 
   // Resolve default props
+  // 处理默认值
+  // Comp.defaultProps = {value:1}
+  // 如果defaultProps里有的值在props上为undefined，就将props上的这个值设置为默认值
   if (type && type.defaultProps) {
     const defaultProps = type.defaultProps;
     for (propName in defaultProps) {

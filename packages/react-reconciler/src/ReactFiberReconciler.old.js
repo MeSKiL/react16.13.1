@@ -213,6 +213,14 @@ function findHostInstanceWithWarning(
   return findHostInstance(component);
 }
 
+/**
+ *
+ * @param containerInfo
+ * @param tag
+ * @param hydrate
+ * @param hydrationCallbacks
+ * @returns {FiberRoot}
+ */
 export function createContainer(
   containerInfo: Container,
   tag: RootTag,
@@ -222,6 +230,21 @@ export function createContainer(
   return createFiberRoot(containerInfo, tag, hydrate, hydrationCallbacks);
 }
 
+/**
+ *
+ * @param element 要挂载的节点
+ * @param container FiberRoot
+ * @param parentComponent 父节点
+ * @param callback
+ * @description
+ *  1.计算currenTime
+ *  2.计算expirationTime
+ *  3.获取context给container的context赋值
+ *  4.创建update
+ *  5.调用enqueueUpdate
+ *  6.调用scheduleUpdateOnFiber开始调度
+ * @returns {ExpirationTime}
+ */
 export function updateContainer(
   element: ReactNodeList,
   container: OpaqueRoot,

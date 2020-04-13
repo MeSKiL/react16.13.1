@@ -80,6 +80,9 @@ function mapIntoArray(
 ): number {
   const type = typeof children;
 
+  // 如果children是react可以渲染的单个节点，就可以对其调用callback
+  // 如果返回的是数组，就对数组递归调用mapIntoArray，callback为 c => c
+  // 直到返回的结果不是数组也不为空了，就clone这个元素后把key换了，然后加入到array中。
   if (type === 'undefined' || type === 'boolean') {
     // All of the above are perceived as null.
     children = null;
@@ -137,6 +140,8 @@ function mapIntoArray(
     return 1;
   }
 
+  // 如果children是一个数组，就对每个子项进行mapInfoArray，callback依旧是callback
+  // 直到单个节点的时候才会调用callback
   let child;
   let nextName;
   let subtreeCount = 0; // Count of children found in the current subtree.

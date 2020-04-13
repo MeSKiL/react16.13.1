@@ -201,6 +201,14 @@ function FiberNode(
 //    is faster.
 // 5) It should be easy to port this to a C struct and keep a C implementation
 //    compatible.
+/**
+ *
+ * @param tag
+ * @param pendingProps
+ * @param key
+ * @param mode
+ * @returns {FiberNode}
+ */
 const createFiber = function(
   tag: WorkTag,
   pendingProps: mixed,
@@ -435,6 +443,14 @@ export function resetWorkInProgress(
   return workInProgress;
 }
 
+/**
+ *
+ * @param tag
+ * @description
+ *  1.设置mode
+ *  2.返回createFiber()的结果
+ * @returns {Fiber}
+ */
 export function createHostRootFiber(tag: RootTag): Fiber {
   let mode;
   if (tag === ConcurrentRoot) {

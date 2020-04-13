@@ -25,18 +25,29 @@ import {clearPendingUpdates as clearPendingMutableSourceUpdates} from './ReactMu
 
 function FiberRootNode(containerInfo, tag, hydrate) {
   this.tag = tag;
+  // root节点对应的fiber对象，这个fiber就是fiber树的顶点
   this.current = null;
+  // render方法接收的第二个参数
   this.containerInfo = containerInfo;
+  // 只有持久化更新会用到 ssr中用的
   this.pendingChildren = null;
   this.pingCache = null;
   this.finishedExpirationTime = NoWork;
+
+  // 已经完成任务的FiberRoot对象，如果只有一个Root只有可能是RootFiber或者null
   this.finishedWork = null;
+
+  // 在任务被挂起的时候通过setTimeout设置的返回内容，用来下一次如果有新的任务挂起时清理还没触发的timeout
   this.timeoutHandle = noTimeout;
+
+  // 只有主动调用renderSubtreeIntoContainer时才会有用
   this.context = null;
+
   this.pendingContext = null;
   this.hydrate = hydrate;
   this.callbackNode = null;
   this.callbackPriority = NoPriority;
+  // 各种更新所涉及的时间,用于标记不同优先级的任务
   this.firstPendingTime = NoWork;
   this.lastPendingTime = NoWork;
   this.firstSuspendedTime = NoWork;
@@ -57,6 +68,19 @@ function FiberRootNode(containerInfo, tag, hydrate) {
   }
 }
 
+/**
+ *
+ * @param containerInfo
+ * @param tag
+ * @param hydrate
+ * @param hydrationCallbacks
+ * @description
+ *  1.通过new FiberRootNode创建fiber root
+ *  2.通过createHostRootFiber创建rootFiber
+ *  3.调用initializeUpdateQueue，初始化updateQueue
+ *  4.返回fiber root
+ * @returns {FiberRoot}
+ */
 export function createFiberRoot(
   containerInfo: any,
   tag: RootTag,

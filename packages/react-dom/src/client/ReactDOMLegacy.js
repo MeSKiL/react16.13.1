@@ -88,7 +88,7 @@ if (__DEV__) {
     }
   };
 }
-
+// container下有没有子节点
 function getReactRootElementInContainer(container: any) {
   if (!container) {
     return null;
@@ -110,13 +110,24 @@ function shouldHydrateDueToLegacyHeuristic(container) {
   );
 }
 
+/**
+ *
+ * @param container
+ * @param forceHydrate
+ * @description
+ *  1.不需要调和子节点就删除container下的子节点
+ *  2.返回createLegacyRoot()生成的reactRoot
+ * @returns {RootType}
+ */
 function legacyCreateRootFromDOMContainer(
   container: Container,
   forceHydrate: boolean,
 ): RootType {
+  // 是否需要合并或者复用html节点。服务端渲染相关。
   const shouldHydrate =
     forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
   // First clear any existing content.
+  // 不需要调和子节点的话就把container下的节点全删了
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
@@ -172,6 +183,21 @@ function warnOnInvalidCallback(callback: mixed, callerName: string): void {
   }
 }
 
+/**
+ *
+ * @param parentComponent
+ * @param children
+ * @param container
+ * @param forceHydrate
+ * @param callback
+ * @description
+ *  1.创建root,root上什么也没有，只有_internalRoot属性，是createContainer出来的
+ *  2.fiberRoot指向了root.internalRoot
+ *  3.判断有没有callback，然后对callback封装
+ *  4.调用了unbatchedUpdates，传入了updateContainer()作为回调
+ *  5.返回getPublicRootInstance的结果
+ * @returns {React$Component<*, *>|PublicInstance}
+ */
 function legacyRenderSubtreeIntoContainer(
   parentComponent: ?React$Component<any, any>,
   children: ReactNodeList,
@@ -284,6 +310,16 @@ export function hydrate(
   );
 }
 
+/**
+ *
+ * @param element  需要挂在的reactElement
+ * @param container 挂载在哪个节点上
+ * @param callback 挂载成功后的回调函数
+ * @description
+ *  1.先判断container是否有效
+ *  2.返回legacyRenderSubtreeIntoContainer()的结果
+ * @returns {React$Component<*, *>|PublicInstance}
+ */
 export function render(
   element: React$Element<any>,
   container: Container,

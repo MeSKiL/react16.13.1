@@ -58,6 +58,15 @@ function ReactDOMRoot(container: Container, options: void | RootOptions) {
   this._internalRoot = createRootImpl(container, ConcurrentRoot, options);
 }
 
+//
+/**
+ *
+ * @param container
+ * @param tag 节点tag
+ * @param options
+ * @description 实例上有_internalRoot属性，值为createRootImpl()的结果
+ * @constructor
+ */
 function ReactDOMBlockingRoot(
   container: Container,
   tag: RootTag,
@@ -112,6 +121,16 @@ ReactDOMRoot.prototype.unmount = ReactDOMBlockingRoot.prototype.unmount = functi
   });
 };
 
+/**
+ *
+ * @param container
+ * @param tag
+ * @param options
+ * @description
+ *  1.通过createContainer()创建root
+ *  2.返回root
+ * @returns {OpaqueRoot}
+ */
 function createRootImpl(
   container: Container,
   tag: RootTag,
@@ -157,6 +176,13 @@ export function createBlockingRoot(
   return new ReactDOMBlockingRoot(container, BlockingRoot, options);
 }
 
+/**
+ *
+ * @param container
+ * @param options
+ * @description 返回ReactDOMBlockingRoot的实例
+ * @returns {ReactDOMBlockingRoot}
+ */
 export function createLegacyRoot(
   container: Container,
   options?: RootOptions,

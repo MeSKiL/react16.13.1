@@ -286,6 +286,7 @@ export function getWorkInProgressRoot(): FiberRoot | null {
   return workInProgressRoot;
 }
 
+
 export function requestCurrentTimeForUpdate() {
   if ((executionContext & (RenderContext | CommitContext)) !== NoContext) {
     // We're inside React, so it's fine to read the actual time.
@@ -305,17 +306,26 @@ export function getCurrentTime() {
   return msToExpirationTime(now());
 }
 
+/**
+ *
+ * @param currentTime
+ * @param fiber
+ * @param suspenseConfig
+ * @returns {ExpirationTime|number|*}
+ */
 export function computeExpirationForFiber(
   currentTime: ExpirationTime,
   fiber: Fiber,
   suspenseConfig: null | SuspenseConfig,
 ): ExpirationTime {
   const mode = fiber.mode;
+  // 不是BlockingMode 返回Sync
   if ((mode & BlockingMode) === NoMode) {
     return Sync;
   }
 
-  const priorityLevel = getCurrentPriorityLevel();
+  const priorityLevel = getCurrentPriorityLevel(); // 获取此时的优先级
+  // 不是ConcurrentMode的话看优先级是不是ImmediatePriority 返回Sync或者Sync-1
   if ((mode & ConcurrentMode) === NoMode) {
     return priorityLevel === ImmediatePriority ? Sync : Batched;
   }

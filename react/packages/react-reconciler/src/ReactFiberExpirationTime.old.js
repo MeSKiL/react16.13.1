@@ -42,19 +42,28 @@ const UNIT_SIZE = 10;
 const MAGIC_NUMBER_OFFSET = Batched - 1;
 
 // 1 unit of expiration time represents 10ms.
-export function msToExpirationTime(ms: number): ExpirationTime {
-  // Always subtract from the offset so that we don't clash with the magic number for NoWork.
-  return MAGIC_NUMBER_OFFSET - ((ms / UNIT_SIZE) | 0);
-}
 
 export function expirationTimeToMs(expirationTime: ExpirationTime): number {
   return (MAGIC_NUMBER_OFFSET - expirationTime) * UNIT_SIZE;
 }
 
+/**
+ *
+ * @param num
+ * @param precision
+ * @returns {number}
+ */
 function ceiling(num: number, precision: number): number {
   return (((num / precision) | 0) + 1) * precision;
 }
 
+/**
+ *
+ * @param currentTime
+ * @param expirationInMs
+ * @param bucketSizeMs
+ * @returns {number}
+ */
 function computeExpirationBucket(
   currentTime,
   expirationInMs,

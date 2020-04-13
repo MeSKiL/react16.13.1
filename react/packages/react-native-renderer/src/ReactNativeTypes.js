@@ -8,7 +8,7 @@
  * @flow
  */
 
-import type {ElementRef, AbstractComponent} from 'react';
+import type {ElementRef, AbstractComponent} from 'react'
 
 export type MeasureOnSuccessCallback = (
   x: number,
@@ -16,43 +16,41 @@ export type MeasureOnSuccessCallback = (
   width: number,
   height: number,
   pageX: number,
-  pageY: number,
+  pageY: number
 ) => void;
 
 export type MeasureInWindowOnSuccessCallback = (
   x: number,
   y: number,
   width: number,
-  height: number,
+  height: number
 ) => void;
 
 export type MeasureLayoutOnSuccessCallback = (
   left: number,
   top: number,
   width: number,
-  height: number,
+  height: number
 ) => void;
 
 type AttributeType =
   | true
   | $ReadOnly<{|
-      diff?: <T>(arg1: T, arg2: T) => boolean,
-      process?: (arg1: any) => any,
-    |}>;
+  diff?: <T>(arg1: T, arg2: T) => boolean,
+  process?: (arg1: any) => any,
+|}>;
 
-export type AttributeConfiguration<
-  TProps = string,
+export type AttributeConfiguration<TProps = string,
   TStyleProps = string,
-> = $ReadOnly<{
+  > = $ReadOnly<{
   [propName: TProps]: AttributeType,
-  style: $ReadOnly<{[propName: TStyleProps]: AttributeType, ...}>,
+  style: $ReadOnly<{ [propName: TStyleProps]: AttributeType, ... }>,
   ...
 }>;
 
-export type ReactNativeBaseComponentViewConfig<
-  TProps = string,
+export type ReactNativeBaseComponentViewConfig<TProps = string,
   TStyleProps = string,
-> = $ReadOnly<{|
+  > = $ReadOnly<{|
   baseModuleName?: string,
   bubblingEventTypes?: $ReadOnly<{
     [eventName: string]: $ReadOnly<{|
@@ -61,16 +59,16 @@ export type ReactNativeBaseComponentViewConfig<
         bubbled: string,
       |}>,
     |}>,
-    ...,
+    ...
   }>,
-  Commands?: $ReadOnly<{[commandName: string]: number, ...}>,
+  Commands?: $ReadOnly<{ [commandName: string]: number, ... }>,
   directEventTypes?: $ReadOnly<{
     [eventName: string]: $ReadOnly<{|
       registrationName: string,
     |}>,
-    ...,
+    ...
   }>,
-  NativeProps?: $ReadOnly<{[propName: string]: string, ...}>,
+  NativeProps?: $ReadOnly<{ [propName: string]: string, ... }>,
   uiViewClassName: string,
   validAttributes: AttributeConfiguration<TProps, TStyleProps>,
 |}>;
@@ -85,7 +83,7 @@ export type NativeMethods = {
   measureLayout(
     relativeToNativeNode: number | ElementRef<HostComponent<mixed>>,
     onSuccess: MeasureLayoutOnSuccessCallback,
-    onFail?: () => void,
+    onFail?: () => void
   ): void,
   setNativeProps(nativeProps: Object): void,
   ...
@@ -102,7 +100,7 @@ type SecretInternalsType = {
 
 type InspectorDataProps = $ReadOnly<{
   [propName: string]: string,
-  ...,
+  ...
 }>;
 
 type InspectorDataSource = $ReadOnly<{|
@@ -146,14 +144,14 @@ export type TouchedViewDataAtPoint = $ReadOnly<{|
  */
 export type ReactNativeType = {
   findHostInstance_DEPRECATED(
-    componentOrHandle: any,
+    componentOrHandle: any
   ): ?ElementRef<HostComponent<mixed>>,
   findNodeHandle(componentOrHandle: any): ?number,
   dispatchCommand(handle: any, command: string, args: Array<any>): void,
   render(
     element: React$Element<any>,
     containerTag: any,
-    callback: ?Function,
+    callback: ?Function
   ): any,
   unmountComponentAtNode(containerTag: number): any,
   unmountComponentAtNodeAndRemoveContainer(containerTag: number): any,
@@ -165,14 +163,14 @@ export type ReactNativeType = {
 
 export type ReactFabricType = {
   findHostInstance_DEPRECATED(
-    componentOrHandle: any,
+    componentOrHandle: any
   ): ?ElementRef<HostComponent<mixed>>,
   findNodeHandle(componentOrHandle: any): ?number,
   dispatchCommand(handle: any, command: string, args: Array<any>): void,
   render(
     element: React$Element<any>,
     containerTag: any,
-    callback: ?Function,
+    callback: ?Function
   ): any,
   unmountComponentAtNode(containerTag: number): any,
   ...

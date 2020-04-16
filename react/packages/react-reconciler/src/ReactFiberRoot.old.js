@@ -103,12 +103,20 @@ export function createFiberRoot(
   return root;
 }
 
+/**
+ *
+ * @param root
+ * @param expirationTime
+ * @description expirationTime在firstSuspendedTime和lastSuspendedTime之间，说明他挂在成功了
+ * @returns {boolean}
+ */
 export function isRootSuspendedAtTime(
   root: FiberRoot,
   expirationTime: ExpirationTime,
 ): boolean {
   const firstSuspendedTime = root.firstSuspendedTime;
   const lastSuspendedTime = root.lastSuspendedTime;
+  // expirationTime在firstSuspendedTime和lastSuspendedTime之间，说明他挂在成功了
   return (
     firstSuspendedTime !== NoWork &&
     firstSuspendedTime >= expirationTime &&

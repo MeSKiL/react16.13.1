@@ -129,13 +129,25 @@ export function scheduleCallback(
   callback: SchedulerCallback,
   options: SchedulerCallbackOptions | void | null,
 ) {
+  // 将react优先级转换为调度优先级,调用Scheduler_scheduleCallback
   const priorityLevel = reactPriorityToSchedulerPriority(reactPriorityLevel);
   return Scheduler_scheduleCallback(priorityLevel, callback, options);
 }
 
+/**
+ *
+ * @param callback
+ * @description
+ *  1.创建syncQueue，并加入callback
+ *  2.执行Scheduler_scheduleCallback
+ *  3.如果syncQueue存在，就继续加callback进入
+ *  4.不执行Scheduler_scheduleCallback是因为如果queue存在，这个方法就已经执行过了，会把之后增加的callback都一起执行掉。
+ * @returns {{}}
+ */
 export function scheduleSyncCallback(callback: SchedulerCallback) {
   // Push this callback into an internal queue. We'll flush these either in
   // the next tick, or earlier if something calls `flushSyncCallbackQueue`.
+  // 把callback放到queue里，然后在nextTick处理queue，如果有flushSyncCallbackQueue就更早处理。
   if (syncQueue === null) {
     syncQueue = [callback];
     // Flush the queue in the next tick, at the earliest.
@@ -157,6 +169,9 @@ export function cancelCallback(callbackNode: mixed) {
   }
 }
 
+/**
+ * 取消nextTick就要执行的任务，直接更新。
+ */
 export function flushSyncCallbackQueue() {
   if (immediateQueueCallbackNode !== null) {
     const node = immediateQueueCallbackNode;

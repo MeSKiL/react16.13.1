@@ -42,6 +42,10 @@ const UNIT_SIZE = 10;
 const MAGIC_NUMBER_OFFSET = Batched - 1;
 
 // 1 unit of expiration time represents 10ms.
+export function msToExpirationTime(ms: number): ExpirationTime {
+  // Always subtract from the offset so that we don't clash with the magic number for NoWork.
+  return MAGIC_NUMBER_OFFSET - ((ms / UNIT_SIZE) | 0);
+}
 
 export function expirationTimeToMs(expirationTime: ExpirationTime): number {
   return (MAGIC_NUMBER_OFFSET - expirationTime) * UNIT_SIZE;
@@ -127,6 +131,13 @@ export function computeInteractiveExpiration(currentTime: ExpirationTime) {
   );
 }
 
+/**
+ *
+ * @param currentTime
+ * @param expirationTime
+ * @description 根据expirationTime计算优先级
+ * @returns {ReactPriorityLevel}
+ */
 export function inferPriorityFromExpirationTime(
   currentTime: ExpirationTime,
   expirationTime: ExpirationTime,

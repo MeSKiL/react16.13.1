@@ -286,7 +286,10 @@ export function getWorkInProgressRoot(): FiberRoot | null {
   return workInProgressRoot;
 }
 
-
+/**
+ * @description 调用了msToExpirationTime(now())计算了currentEventTime
+ * @returns {ExpirationTime}
+ */
 export function requestCurrentTimeForUpdate() {
   if ((executionContext & (RenderContext | CommitContext)) !== NoContext) {
     // We're inside React, so it's fine to read the actual time.
@@ -324,7 +327,7 @@ export function computeExpirationForFiber(
     return Sync;
   }
 
-  const priorityLevel = getCurrentPriorityLevel(); // 获取此时的优先级
+  const priorityLevel = getCurrentPriorityLevel();
   // 不是ConcurrentMode的话看优先级是不是ImmediatePriority 返回Sync或者Sync-1
   if ((mode & ConcurrentMode) === NoMode) {
     return priorityLevel === ImmediatePriority ? Sync : Batched;
@@ -379,13 +382,27 @@ export function computeExpirationForFiber(
   return expirationTime;
 }
 
+/**
+ *
+ * @param fiber
+ * @param expirationTime
+ * @description
+ *  1.调用checkForNestedUpdates检测是否update过多提示错误
+ *  2.调用markUpdateTimeFromFiberToRoot找到fiberRoot，给fiber树赋值了合理的expirationTime，还给root上的部分属性赋值
+ *  3.同步的情况下
+ *    (1)unbatched并且不在render 也不在 commit。schedulePendingInteractions + performSyncWorkOnRoot。
+ *    (2)batched或者正在redner或者在commit。ensureRootIsScheduled + schedulePendingInteractions。没有上下文的情况再flushSyncCallbackQueue。
+ *  4.异步的话执行ensureRootIsScheduled + schedulePendingInteractions。
+ */
 export function scheduleUpdateOnFiber(
   fiber: Fiber,
   expirationTime: ExpirationTime,
 ) {
+  // 检测updateQueue里的update是否过多(大于50个)来提示错误
   checkForNestedUpdates();
   warnAboutRenderPhaseUpdatesInDEV(fiber);
 
+  // 根据传进来的fiber找到FiberRoot对象,并给fiber和fiber的所有祖先节点都设置了合理的expirationTime，以及给root上的一些属性赋值
   const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime);
   if (root === null) {
     warnAboutUpdateOnUnmountedFiberInDEV(fiber);
@@ -403,7 +420,11 @@ export function scheduleUpdateOnFiber(
       // Check if we're not already rendering
       (executionContext & (RenderContext | CommitContext)) === NoContext
     ) {
+      // 同步的情况下，并且不是batched也不再render和commit阶段的时候 执行schedulePendingInteractions和performSyncWorkOnRoot
+
       // Register pending interactions on the root to avoid losing traced interaction data.
+
+      // 跟踪这些update并计数，检测它们是否会报错
       schedulePendingInteractions(root, expirationTime);
 
       // This is a legacy edge case. The initial mount of a ReactDOM.render-ed
@@ -411,9 +432,11 @@ export function scheduleUpdateOnFiber(
       // should be deferred until the end of the batch.
       performSyncWorkOnRoot(root);
     } else {
+      // 如果是batched或者在render和commit,就执行ensureRootIsScheduled和schedulePendingInteractions
       ensureRootIsScheduled(root);
       schedulePendingInteractions(root, expirationTime);
       if (executionContext === NoContext) {
+        // 如果没有上下文，就可以直接刷新同步任务队列
         // Flush the synchronous work now, unless we're already working or inside
         // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
         // scheduleCallbackForFiber to preserve the ability to schedule a callback
@@ -423,10 +446,12 @@ export function scheduleUpdateOnFiber(
       }
     }
   } else {
+    // 异步逻辑
     ensureRootIsScheduled(root);
     schedulePendingInteractions(root, expirationTime);
   }
 
+  // 离散的？
   if (
     (executionContext & DiscreteEventContext) !== NoContext &&
     // Only updates at user-blocking priority or greater are considered
@@ -451,12 +476,27 @@ export function scheduleUpdateOnFiber(
 // work without treating it as a typical update that originates from an event;
 // e.g. retrying a Suspense boundary isn't an update, but it does schedule work
 // on a fiber.
+/**
+ *
+ * @param fiber
+ * @param expirationTime
+ * @description
+ *  1.设置fiber的expirationTime为最大的expirationTime
+ *  2.循环设置fiber的各个祖先节点的childExpirationTime为最大的expirationTime
+ *  3.找到root
+ *  4.调用markUnprocessedUpdateTime设置了下一个要处理的任务的expirationTime
+ *  5.根据判断设置root上的各个属性
+ *  6.返回root
+ * @returns {null}
+ */
 function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
   // Update the source fiber's expiration time
+  // 更新fiber的expirationTime，取大值(优先级提高)。
   if (fiber.expirationTime < expirationTime) {
     fiber.expirationTime = expirationTime;
   }
   let alternate = fiber.alternate;
+  // 更新alternate的expirationTime
   if (alternate !== null && alternate.expirationTime < expirationTime) {
     alternate.expirationTime = expirationTime;
   }
@@ -464,12 +504,17 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
   let node = fiber.return;
   let root = null;
   if (node === null && fiber.tag === HostRoot) {
+    // 找到了fiberRoot
     root = fiber.stateNode;
   } else {
     while (node !== null) {
       alternate = node.alternate;
+      // node是fiber.return
+      // node.childExpirationTime是fiber的父节点的子树里优先级最高的expirationTime
+      // 如果比这次更新的fiber的expirationTime大，就更新node.childExpirationTime
       if (node.childExpirationTime < expirationTime) {
         node.childExpirationTime = expirationTime;
+        // 同样的更新alternate
         if (
           alternate !== null &&
           alternate.childExpirationTime < expirationTime
@@ -477,12 +522,14 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
           alternate.childExpirationTime = expirationTime;
         }
       } else if (
+        // 更新alternate，node不更新不代表alternate不需要更新
         alternate !== null &&
         alternate.childExpirationTime < expirationTime
       ) {
         alternate.childExpirationTime = expirationTime;
       }
       if (node.return === null && node.tag === HostRoot) {
+        // 找到了fiberRoot
         root = node.stateNode;
         break;
       }
@@ -494,6 +541,8 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
     if (workInProgressRoot === root) {
       // Received an update to a tree that's in the middle of rendering. Mark
       // that's unprocessed work on this root.
+
+      // 设置了下一个待处理的expirationTime
       markUnprocessedUpdateTime(expirationTime);
 
       if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
@@ -514,17 +563,26 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
       }
     }
     // Mark that the root has a pending update.
+
+    // 设置了root的firstPendingTime,lastPendingTime,firstSuspendedTime,lastSuspendedTime,nextKnownPendingLevel
     markRootUpdatedAtTime(root, expirationTime);
   }
 
   return root;
 }
 
+/**
+ *
+ * @param root
+ * @description 返回当前最高优先级的expirationTime
+ * @returns {number|*}
+ */
 function getNextRootExpirationTimeToWorkOn(root: FiberRoot): ExpirationTime {
   // Determines the next expiration time that the root should render, taking
   // into account levels that may be suspended, or levels that may have
   // received a ping.
 
+  // 存在过期任务，就把过期时间返出去
   const lastExpiredTime = root.lastExpiredTime;
   if (lastExpiredTime !== NoWork) {
     return lastExpiredTime;
@@ -532,7 +590,11 @@ function getNextRootExpirationTimeToWorkOn(root: FiberRoot): ExpirationTime {
 
   // "Pending" refers to any update that hasn't committed yet, including if it
   // suspended. The "suspended" range is therefore a subset.
+
+  // pending是指任何还没有commited(提交)的更新，包括suspended(调度成功)。
   const firstPendingTime = root.firstPendingTime;
+
+  // firstPendingTime如果挂在没成功就说明是优先级最高的需要调度expirationTime
   if (!isRootSuspendedAtTime(root, firstPendingTime)) {
     // The highest priority pending time is not suspended. Let's work on that.
     return firstPendingTime;
@@ -541,6 +603,9 @@ function getNextRootExpirationTimeToWorkOn(root: FiberRoot): ExpirationTime {
   // If the first pending time is suspended, check if there's a lower priority
   // pending level that we know about. Or check if we received a ping. Work
   // on whichever is higher priority.
+
+  // 如果最高优先级的pending任务已经调度了，那么找稍微低一点优先级的pending级别
+  // 如果被ping？了，就看稍低优先级的任务和ping的任务谁优先级高就返回谁
   const lastPingedTime = root.lastPingedTime;
   const nextKnownPendingLevel = root.nextKnownPendingLevel;
   const nextLevel =
@@ -559,8 +624,24 @@ function getNextRootExpirationTimeToWorkOn(root: FiberRoot): ExpirationTime {
 // expiration time of the existing task is the same as the expiration time of
 // the next level that the root has work on. This function is called on every
 // update, and right before exiting a task.
+/**
+ *
+ * @param root
+ * @description
+ *  设置root.callbackExpirationTime
+ *  设置root.callbackPriority
+ *  设置root.callbackNode
+ *
+ *  1.如果存在过期任务，就同步执行调度。
+ *  2.没有要调度的任务,就清空三个值。
+ *  3.如果存在比当前正在调度的任务优先级更高的任务。就取消正在执行的任务。
+ *  4.根据最高优先级的任务是同步还是异步执行对应的调度方法。
+ */
+// batched和异步用来调度的方法。
 function ensureRootIsScheduled(root: FiberRoot) {
   const lastExpiredTime = root.lastExpiredTime;
+
+  // 最近过期时间不为NoWork，就说明有任务过期了，直接就同步更新。
   if (lastExpiredTime !== NoWork) {
     // Special case: Expired work should flush synchronously.
     root.callbackExpirationTime = Sync;
@@ -571,8 +652,12 @@ function ensureRootIsScheduled(root: FiberRoot) {
     return;
   }
 
+  // 当前root上最高优先级的expirationTime
   const expirationTime = getNextRootExpirationTimeToWorkOn(root);
+  // 正在执行的任务
   const existingCallbackNode = root.callbackNode;
+
+  // 如果没有要调度的任务
   if (expirationTime === NoWork) {
     // There's nothing to work on.
     if (existingCallbackNode !== null) {
@@ -586,6 +671,7 @@ function ensureRootIsScheduled(root: FiberRoot) {
   // TODO: If this is an update, we already read the current time. Pass the
   // time as an argument.
   const currentTime = requestCurrentTimeForUpdate();
+  // 计算队列里优先级最高的任务的优先级
   const priorityLevel = inferPriorityFromExpirationTime(
     currentTime,
     expirationTime,
@@ -593,6 +679,11 @@ function ensureRootIsScheduled(root: FiberRoot) {
 
   // If there's an existing render task, confirm it has the correct priority and
   // expiration time. Otherwise, we'll cancel it and schedule a new one.
+
+  // 如果存在正在调度的任务，那么这个任务的到期时间 必须和 最高优先级的任务 相同。并且优先级不小于最高优先级的任务。
+  // 否则就说明最高优先级的任务被人改了。
+  // 因为如果不被更改，正在调度的任务就应该是最近到期时间的任务。
+  // 最近到期时间被改意味着，被更高优先级的任务插队了，就取消当前渲染的任务
   if (existingCallbackNode !== null) {
     const existingCallbackPriority = root.callbackPriority;
     const existingCallbackExpirationTime = root.callbackExpirationTime;
@@ -611,19 +702,23 @@ function ensureRootIsScheduled(root: FiberRoot) {
     cancelCallback(existingCallbackNode);
   }
 
+  // 将root的callbackExpirationTime和callbackPriority都设置为最高优先级的。
   root.callbackExpirationTime = expirationTime;
   root.callbackPriority = priorityLevel;
 
   let callbackNode;
   if (expirationTime === Sync) {
+    // 同步调度
     // Sync React callbacks are scheduled on a special internal queue
     callbackNode = scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root));
   } else if (disableSchedulerTimeoutBasedOnReactExpirationTime) {
+    // 异步调度
     callbackNode = scheduleCallback(
       priorityLevel,
       performConcurrentWorkOnRoot.bind(null, root),
     );
   } else {
+    // 异步调度
     callbackNode = scheduleCallback(
       priorityLevel,
       performConcurrentWorkOnRoot.bind(null, root),
@@ -1064,13 +1159,21 @@ function flushPendingDiscreteUpdates() {
   }
 }
 
+/**
+ *
+ * @param fn
+ * @param a
+ * @returns {R}
+ */
 export function batchedUpdates<A, R>(fn: A => R, a: A): R {
   const prevExecutionContext = executionContext;
+  // 给executionContext加上BatchedContext
   executionContext |= BatchedContext;
   try {
     return fn(a);
   } finally {
     executionContext = prevExecutionContext;
+    // 去除BatchedContext然后执行flushSyncCallbackQueue
     if (executionContext === NoContext) {
       // Flush the immediate callbacks that were scheduled during this batch
       flushSyncCallbackQueue();
@@ -3089,14 +3192,26 @@ export function markSpawnedWork(expirationTime: ExpirationTime) {
   }
 }
 
+/**
+ *
+ * @param root
+ * @param expirationTime
+ * @param interactions set
+ */
 function scheduleInteractions(root, expirationTime, interactions) {
   if (!enableSchedulerTracing) {
     return;
   }
 
   if (interactions.size > 0) {
+    // interactions存在的话
+
     const pendingInteractionMap = root.pendingInteractionMap;
     const pendingInteractions = pendingInteractionMap.get(expirationTime);
+    // root.pendingInteractionMap.get(expirationTime)，new Set(interactions)
+    // 所以一开始 pendingInteractions就是interactions，都是set
+    // 那么interactions存在pendingInteractions的内容，说明是新加的，就把__count++，并且塞到pendingInteractions里面去。
+    //todo 个人理解interaction.__count记录了自己是哪批的interactions,我也不知道什么意思，看后面有没有用到吧
     if (pendingInteractions != null) {
       interactions.forEach(interaction => {
         if (!pendingInteractions.has(interaction)) {
@@ -3111,6 +3226,7 @@ function scheduleInteractions(root, expirationTime, interactions) {
 
       // Update the pending async work count for the current interactions.
       interactions.forEach(interaction => {
+        // 每个__count++
         interaction.__count++;
       });
     }
@@ -3130,6 +3246,10 @@ function schedulePendingInteractions(root, expirationTime) {
   if (!enableSchedulerTracing) {
     return;
   }
+
+  //   interactionsRef = {
+  //     current: new Set(),
+  //   };
 
   scheduleInteractions(root, expirationTime, __interactionsRef.current);
 }

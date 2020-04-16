@@ -79,11 +79,13 @@ var isHostCallbackScheduled = false;
 var isHostTimeoutScheduled = false;
 
 function advanceTimers(currentTime) {
+  // 把不延迟的tasks从timeQueue移到taskQueue里
   // Check for tasks that are no longer delayed and add them to the queue.
   let timer = peek(timerQueue);
   while (timer !== null) {
     if (timer.callback === null) {
       // Timer was cancelled.
+      // timer取消了
       pop(timerQueue);
     } else if (timer.startTime <= currentTime) {
       // Timer fired. Transfer to the task queue.
@@ -119,6 +121,18 @@ function handleTimeout(currentTime) {
   }
 }
 
+/**
+ *
+ * @param hasTimeRemaining
+ * @param initialTime
+ * @description
+ *  1.设置isHostTimeoutScheduled为true,这样就可以有下一轮的requestHostCallback等isPerformingWork变为false就可以来了。
+ *    finally将isHostTimeoutScheduled改成false也符合逻辑吧
+ *  2.将isPerformingWork设置为true，并存下当前的优先级
+ *  3.执行workLoop
+ *  4.还原优先级，清空task，isPerformingWork赋值为false
+ * @returns {boolean}
+ */
 function flushWork(hasTimeRemaining, initialTime) {
   if (enableProfiling) {
     markSchedulerUnsuspended(initialTime);
@@ -127,6 +141,7 @@ function flushWork(hasTimeRemaining, initialTime) {
   // We'll need a host callback the next time work is scheduled.
   isHostCallbackScheduled = false;
   if (isHostTimeoutScheduled) {
+    // 用于delay的情况，好像是不走的。
     // We scheduled a timeout but it's no longer needed. Cancel it.
     isHostTimeoutScheduled = false;
     cancelHostTimeout();
@@ -161,10 +176,22 @@ function flushWork(hasTimeRemaining, initialTime) {
   }
 }
 
+/**
+ *
+ * @param hasTimeRemaining true
+ * @param initialTime Date.now()
+ * @returns {boolean}
+ */
 function workLoop(hasTimeRemaining, initialTime) {
   let currentTime = initialTime;
+  // 处理delay的情况，没看到delay的逻辑。
   advanceTimers(currentTime);
+
   currentTask = peek(taskQueue);
+  // 最先创建的task
+  // task的expirationTime和fiber的expirationTime的算法不一样。
+  // task是expirationTime越大，优先级越低
+  // fiber的expirationTime是越大，优先级越高
   while (
     currentTask !== null &&
     !(enableSchedulerDebugging && isSchedulerPaused)
@@ -172,7 +199,9 @@ function workLoop(hasTimeRemaining, initialTime) {
     if (
       currentTask.expirationTime > currentTime &&
       (!hasTimeRemaining || shouldYieldToHost())
+      // shouldYieldToHost() = false
     ) {
+      // 如果该任务还没过期或者没时间了就不处理
       // This currentTask hasn't expired, and we've reached the deadline.
       break;
     }
@@ -180,12 +209,19 @@ function workLoop(hasTimeRemaining, initialTime) {
     if (callback !== null) {
       currentTask.callback = null;
       currentPriorityLevel = currentTask.priorityLevel;
+
+      // 该任务是否超时
       const didUserCallbackTimeout = currentTask.expirationTime <= currentTime;
+
+      // dev代码
       markTaskRun(currentTask, currentTime);
+
+      // 执行callback，同步就清空syncQueue,异步就执行performConcurrentWorkOnRoot
       const continuationCallback = callback(didUserCallbackTimeout);
       currentTime = getCurrentTime();
       if (typeof continuationCallback === 'function') {
         currentTask.callback = continuationCallback;
+        // 如果返回的还是callback，就再循环执行一次。
         markTaskYield(currentTask, currentTime);
       } else {
         if (enableProfiling) {
@@ -193,11 +229,13 @@ function workLoop(hasTimeRemaining, initialTime) {
           currentTask.isQueued = false;
         }
         if (currentTask === peek(taskQueue)) {
+          // 弹出堆顶
           pop(taskQueue);
         }
       }
       advanceTimers(currentTime);
     } else {
+      // 没有callback就直接下一个任务
       pop(taskQueue);
     }
     currentTask = peek(taskQueue);
@@ -292,7 +330,15 @@ function timeoutForPriorityLevel(priorityLevel) {
   }
 }
 
+/**
+ *
+ * @param priorityLevel 调度优先级
+ * @param callback
+ * @param options
+ * @returns {{priorityLevel: *, sortIndex: number, expirationTime: *, callback: *, startTime: *, id: number}}
+ */
 function unstable_scheduleCallback(priorityLevel, callback, options) {
+  // date.now()
   var currentTime = getCurrentTime();
 
   var startTime;
@@ -313,6 +359,7 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
     startTime = currentTime;
   }
 
+  // 当前时间+timeout
   var expirationTime = startTime + timeout;
 
   var newTask = {
